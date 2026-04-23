@@ -121,7 +121,8 @@ EsperaGPIO  LDR     R1, [R0]
             ORR     R2, R2, #GPIO_PORTQ
             ORR     R2, R2, #GPIO_PORTB
             ORR     R2, R2, #GPIO_PORTP
-            TST     R1, R2
+            ANDS    R3, R1, R2
+            CMP     R3, #0
             BEQ     EsperaGPIO
 
 ; 2. Limpar o AMSEL para desabilitar a analogica
@@ -344,7 +345,8 @@ GPIOPortJ_Handler
         ANDS    R1, R1, #2_00000011
         BEQ     Fim_Handler_J
 
-        TST     R1, #2_00000001
+        ANDS    R3, R1, #2_00000001
+        CMP     R3, #0
         BEQ     Verifica_SW2
 
         LDR     R0, =Setpoint
@@ -355,7 +357,8 @@ GPIOPortJ_Handler
         STRB    R2, [R0]
 
 Verifica_SW2
-        TST     R1, #2_00000010
+        ANDS    R3, R1, #2_00000010
+        CMP     R3, #0
         BEQ     Limpa_Interrupcao_J
 
         LDR     R0, =Setpoint

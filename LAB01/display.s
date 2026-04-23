@@ -5,8 +5,12 @@
 
         AREA    DISPLAY_DATA, DATA, READWRITE, ALIGN=2
 
-Display_PortA_Buffer   SPACE   3   ; slot 0 = LEDs, slot 1 = unidade, slot 2 = dezena
-Display_PortQ_Buffer   SPACE   3   ; slot 0 = LEDs, slot 1 = unidade, slot 2 = dezena
+Display_Leds_PortA      SPACE   1   ; parte em Port A dos LEDs da PAT
+Display_Leds_PortQ      SPACE   1   ; parte em Port Q dos LEDs da PAT
+Display_Unidade_PortA   SPACE   1   ; parte em Port A do display de unidade
+Display_Unidade_PortQ   SPACE   1   ; parte em Port Q do display de unidade
+Display_Dezena_PortA    SPACE   1   ; parte em Port A do display de dezena
+Display_Dezena_PortQ    SPACE   1   ; parte em Port Q do display de dezena
 
         AREA    |.text|, CODE, READONLY, ALIGN=2
 
@@ -29,30 +33,33 @@ Display_Init
         BX      LR
 
 Display_Clear
-        LDR     R0, =Display_PortA_Buffer
         MOV     R1, #0
+        LDR     R0, =Display_Leds_PortA
         STRB    R1, [R0]
-        STRB    R1, [R0, #1]
-        STRB    R1, [R0, #2]
-
-        LDR     R0, =Display_PortQ_Buffer
+        LDR     R0, =Display_Leds_PortQ
         STRB    R1, [R0]
-        STRB    R1, [R0, #1]
-        STRB    R1, [R0, #2]
+        LDR     R0, =Display_Unidade_PortA
+        STRB    R1, [R0]
+        LDR     R0, =Display_Unidade_PortQ
+        STRB    R1, [R0]
+        LDR     R0, =Display_Dezena_PortA
+        STRB    R1, [R0]
+        LDR     R0, =Display_Dezena_PortQ
+        STRB    R1, [R0]
         BX      LR
 
 ; R0 = posicao (1 = DS2 unidade, 2 = DS1 dezena)
 ; R1 = digito (0 a 9)
-; Converte o digito e grava diretamente os segmentos na RAM
+; Converte o digito e grava diretamente na variavel do display escolhido
 Display_SetDigit
         PUSH    {R4-R6, LR}
 
+        CMP     R0, #1
+        BLO     Display_SetDigit_End
         CMP     R0, #2
         BHI     Display_SetDigit_End
         CMP     R1, #9
         BHI     Display_SetDigit_End
-
-        MOV     R4, R0
 
         CMP     R1, #0
         BEQ     Digito_0
@@ -124,11 +131,23 @@ Digito_9
         MOV     R6, #2_00001111
 
 Salva_Digito
-        LDR     R0, =Display_PortA_Buffer
-        STRB    R5, [R0, R4]
+        CMP     R0, #1
+        BEQ     Salva_Unidade
 
-        LDR     R0, =Display_PortQ_Buffer
-        STRB    R6, [R0, R4]
+Salva_Dezena
+        LDR     R4, =Display_Dezena_PortA
+        STRB    R5, [R4]
+
+        LDR     R4, =Display_Dezena_PortQ
+        STRB    R6, [R4]
+        B       Display_SetDigit_End
+
+Salva_Unidade
+        LDR     R4, =Display_Unidade_PortA
+        STRB    R5, [R4]
+
+        LDR     R4, =Display_Unidade_PortQ
+        STRB    R6, [R4]
 
 Display_SetDigit_End
         POP     {R4-R6, LR}
@@ -140,11 +159,11 @@ Display_SetLeds
 
         MOV     R1, R0
         AND     R2, R1, #0xF0
-        LDR     R0, =Display_PortA_Buffer
+        LDR     R0, =Display_Leds_PortA
         STRB    R2, [R0]
 
         AND     R2, R1, #0x0F
-        LDR     R0, =Display_PortQ_Buffer
+        LDR     R0, =Display_Leds_PortQ
         STRB    R2, [R0]
 
         POP     {R1-R2, LR}
@@ -159,12 +178,12 @@ Display_Refresh
         BL      PortP_Output
 
         ; Mostra a dezena no DS1 (PB4)
-        LDR     R1, =Display_PortA_Buffer
-        LDRB    R0, [R1, #2]
+        LDR     R1, =Display_Dezena_PortA
+        LDRB    R0, [R1]
         BL      PortA_Output
 
-        LDR     R1, =Display_PortQ_Buffer
-        LDRB    R0, [R1, #2]
+        LDR     R1, =Display_Dezena_PortQ
+        LDRB    R0, [R1]
         BL      PortQ_Output
 
         MOV     R0, #2_00010000
@@ -175,12 +194,12 @@ Display_Refresh
         BL      Delay_1ms
 
         ; Mostra a unidade no DS2 (PB5)
-        LDR     R1, =Display_PortA_Buffer
-        LDRB    R0, [R1, #1]
+        LDR     R1, =Display_Unidade_PortA
+        LDRB    R0, [R1]
         BL      PortA_Output
 
-        LDR     R1, =Display_PortQ_Buffer
-        LDRB    R0, [R1, #1]
+        LDR     R1, =Display_Unidade_PortQ
+        LDRB    R0, [R1]
         BL      PortQ_Output
 
         MOV     R0, #2_00100000
@@ -191,11 +210,11 @@ Display_Refresh
         BL      Delay_1ms
 
         ; Mostra o setpoint em binario nos LEDs da PAT (PP5)
-        LDR     R1, =Display_PortA_Buffer
+        LDR     R1, =Display_Leds_PortA
         LDRB    R0, [R1]
         BL      PortA_Output
 
-        LDR     R1, =Display_PortQ_Buffer
+        LDR     R1, =Display_Leds_PortQ
         LDRB    R0, [R1]
         BL      PortQ_Output
 
