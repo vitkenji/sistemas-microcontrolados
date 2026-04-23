@@ -25,7 +25,7 @@ ContadorTempo   SPACE   1
         IMPORT  Display_SetDigit
         IMPORT  Display_SetLeds
         IMPORT  Display_Refresh
-        IMPORT  PortN_Output
+        IMPORT  PortF_Output
 
 Start
         BL      GPIO_Init
@@ -103,7 +103,7 @@ AtualizaDisplaySetpoint
 
 ; -------------------------------------------------------------------------------
 ; Rotina AtualizaLedEK
-; Atualiza PN1 e PN0 de acordo com o estado do sistema
+; Atualiza PF4 e PF0 de acordo com o estado do sistema
 AtualizaLedEK
         PUSH    {R4-R5, LR}
 
@@ -117,20 +117,20 @@ AtualizaLedEK
         BLO     EstadoEnchendo
 
 EstadoEsvaziando
-        MOV     R0, #2_00000010             ; PN1
-        BL      PortN_Output
+        MOV     R0, #2_00010000             ; PF4
+        BL      PortF_Output
         POP     {R4-R5, LR}
         BX      LR
 
 EstadoEnchendo
-        MOV     R0, #2_00000001             ; PN0
-        BL      PortN_Output
+        MOV     R0, #2_00000001             ; PF0
+        BL      PortF_Output
         POP     {R4-R5, LR}
         BX      LR
 
 EstadoEstavel
-        MOV     R0, #2_00000011             ; PN1 e PN0
-        BL      PortN_Output
+        MOV     R0, #2_00010001             ; PF4 e PF0
+        BL      PortF_Output
         POP     {R4-R5, LR}
         BX      LR
 
@@ -161,4 +161,5 @@ AjustaNivelFim
         POP     {R4-R5, LR}
         BX      LR
 
+        ALIGN
         END

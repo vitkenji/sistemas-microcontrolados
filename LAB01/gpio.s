@@ -1,6 +1,7 @@
 ; gpio.s
 ; Desenvolvido para a placa EK-TM4C1294XL
 ; Prof. Guilherme Peron
+; 19/03/2018
 ; Adaptado para o LAB 1 com displays, LEDs e interrupcao em Port J
 
 ; -------------------------------------------------------------------------------
@@ -79,15 +80,6 @@ GPIO_PORTP_AHB_DEN_R   EQU    0x4006551C
 GPIO_PORTP_AHB_DATA_R  EQU    0x400653FC
 GPIO_PORTP             EQU    2_0010000000000000
 
-; PORT N
-GPIO_PORTN_AHB_AMSEL_R EQU    0x40064528
-GPIO_PORTN_AHB_PCTL_R  EQU    0x4006452C
-GPIO_PORTN_AHB_DIR_R   EQU    0x40064400
-GPIO_PORTN_AHB_AFSEL_R EQU    0x40064420
-GPIO_PORTN_AHB_DEN_R   EQU    0x4006451C
-GPIO_PORTN_AHB_DATA_R  EQU    0x400643FC
-GPIO_PORTN             EQU    2_0001000000000000
-
 ; -------------------------------------------------------------------------------
 ; Area de Codigo
         AREA    |.text|, CODE, READONLY, ALIGN=2
@@ -99,7 +91,6 @@ GPIO_PORTN             EQU    2_0001000000000000
         EXPORT  PortQ_Output
         EXPORT  PortB_Output
         EXPORT  PortP_Output
-        EXPORT  PortN_Output
         EXPORT  Delay_1ms
         EXPORT  GPIOPortJ_Handler
 
@@ -111,7 +102,8 @@ GPIO_PORTN             EQU    2_0001000000000000
 ; Parametro de saida: Nao tem
 GPIO_Init
 ;=====================
-; 1. Ativar o clock para as portas utilizadas
+; 1. Ativar o clock para a porta setando o bit correspondente no registrador RCGCGPIO,
+; apos isso verificar no PRGPIO se a porta esta pronta para uso.
             LDR     R0, =SYSCTL_RCGCGPIO_R
             MOV     R1, #GPIO_PORTF
             ORR     R1, R1, #GPIO_PORTJ
@@ -119,7 +111,6 @@ GPIO_Init
             ORR     R1, R1, #GPIO_PORTQ
             ORR     R1, R1, #GPIO_PORTB
             ORR     R1, R1, #GPIO_PORTP
-            ORR     R1, R1, #GPIO_PORTN
             STR     R1, [R0]
 
             LDR     R0, =SYSCTL_PRGPIO_R
@@ -130,7 +121,6 @@ EsperaGPIO  LDR     R1, [R0]
             ORR     R2, R2, #GPIO_PORTQ
             ORR     R2, R2, #GPIO_PORTB
             ORR     R2, R2, #GPIO_PORTP
-            ORR     R2, R2, #GPIO_PORTN
             TST     R1, R2
             BEQ     EsperaGPIO
 
@@ -148,8 +138,6 @@ EsperaGPIO  LDR     R1, [R0]
             STR     R1, [R0]
             LDR     R0, =GPIO_PORTP_AHB_AMSEL_R
             STR     R1, [R0]
-            LDR     R0, =GPIO_PORTN_AHB_AMSEL_R
-            STR     R1, [R0]
 
 ; 3. Limpar o PCTL para selecionar GPIO
             MOV     R1, #0x00
@@ -164,8 +152,6 @@ EsperaGPIO  LDR     R1, [R0]
             LDR     R0, =GPIO_PORTB_AHB_PCTL_R
             STR     R1, [R0]
             LDR     R0, =GPIO_PORTP_AHB_PCTL_R
-            STR     R1, [R0]
-            LDR     R0, =GPIO_PORTN_AHB_PCTL_R
             STR     R1, [R0]
 
 ; 4. DIR para 0 se for entrada, 1 se for saida
@@ -193,10 +179,6 @@ EsperaGPIO  LDR     R1, [R0]
             MOV     R1, #2_00100000
             STR     R1, [R0]
 
-            LDR     R0, =GPIO_PORTN_AHB_DIR_R
-            MOV     R1, #2_00000011
-            STR     R1, [R0]
-
 ; 5. Limpar os bits AFSEL para selecionar GPIO
             MOV     R1, #0x00
             LDR     R0, =GPIO_PORTF_AHB_AFSEL_R
@@ -210,8 +192,6 @@ EsperaGPIO  LDR     R1, [R0]
             LDR     R0, =GPIO_PORTB_AHB_AFSEL_R
             STR     R1, [R0]
             LDR     R0, =GPIO_PORTP_AHB_AFSEL_R
-            STR     R1, [R0]
-            LDR     R0, =GPIO_PORTN_AHB_AFSEL_R
             STR     R1, [R0]
 
 ; 6. Setar os bits de DEN para habilitar I/O digital
@@ -237,10 +217,6 @@ EsperaGPIO  LDR     R1, [R0]
 
             LDR     R0, =GPIO_PORTP_AHB_DEN_R
             MOV     R1, #2_00100000
-            STR     R1, [R0]
-
-            LDR     R0, =GPIO_PORTN_AHB_DEN_R
-            MOV     R1, #2_00000011
             STR     R1, [R0]
 
 ; 7. Habilitar resistor de pull-up interno nos botoes
@@ -281,8 +257,6 @@ EsperaGPIO  LDR     R1, [R0]
             LDR     R0, =GPIO_PORTB_AHB_DATA_R
             STR     R1, [R0]
             LDR     R0, =GPIO_PORTP_AHB_DATA_R
-            STR     R1, [R0]
-            LDR     R0, =GPIO_PORTN_AHB_DATA_R
             STR     R1, [R0]
 
             BX      LR
@@ -347,18 +321,6 @@ PortB_Output
 ; Parametro de saida: Nao tem
 PortP_Output
         LDR     R1, =GPIO_PORTP_AHB_DATA_R
-        STR     R0, [R1]
-        BX      LR
-
-; -------------------------------------------------------------------------------
-; Funcao PortN_Output
-; Parametro de entrada: R0 --> valor para PN1 e PN0
-; Parametro de saida: Nao tem
-PortN_Output
-        LDR     R1, =GPIO_PORTN_AHB_DATA_R
-        LDR     R2, [R1]
-        BIC     R2, R2, #2_00000011
-        ORR     R0, R0, R2
         STR     R0, [R1]
         BX      LR
 

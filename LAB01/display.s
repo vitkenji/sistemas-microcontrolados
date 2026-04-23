@@ -75,53 +75,53 @@ Display_SetDigit
         B       Digito_9
 
 Digito_0
-        MOV     R5, #0x30
-        MOV     R6, #0x0F
+        MOV     R5, #2_00110000
+        MOV     R6, #2_00001111
         B       Salva_Digito
 
 Digito_1
-        MOV     R5, #0x00
-        MOV     R6, #0x06
+        MOV     R5, #2_00000000
+        MOV     R6, #2_00000110
         B       Salva_Digito
 
 Digito_2
-        MOV     R5, #0x50
-        MOV     R6, #0x0B
+        MOV     R5, #2_01010000
+        MOV     R6, #2_00001011
         B       Salva_Digito
 
 Digito_3
-        MOV     R5, #0x40
-        MOV     R6, #0x0F
+        MOV     R5, #2_01000000
+        MOV     R6, #2_00001111
         B       Salva_Digito
 
 Digito_4
-        MOV     R5, #0x60
-        MOV     R6, #0x06
+        MOV     R5, #2_01100000
+        MOV     R6, #2_00000110
         B       Salva_Digito
 
 Digito_5
-        MOV     R5, #0x60
-        MOV     R6, #0x0D
+        MOV     R5, #2_01100000
+        MOV     R6, #2_00001101
         B       Salva_Digito
 
 Digito_6
-        MOV     R5, #0x70
-        MOV     R6, #0x0D
+        MOV     R5, #2_01110000
+        MOV     R6, #2_00001101
         B       Salva_Digito
 
 Digito_7
-        MOV     R5, #0x00
-        MOV     R6, #0x07
+        MOV     R5, #2_00000000
+        MOV     R6, #2_00000111
         B       Salva_Digito
 
 Digito_8
-        MOV     R5, #0x70
-        MOV     R6, #0x0F
+        MOV     R5, #2_01110000
+        MOV     R6, #2_00001111
         B       Salva_Digito
 
 Digito_9
-        MOV     R5, #0x60
-        MOV     R6, #0x0F
+        MOV     R5, #2_01100000
+        MOV     R6, #2_00001111
 
 Salva_Digito
         LDR     R0, =Display_PortA_Buffer
