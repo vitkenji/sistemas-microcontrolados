@@ -1,80 +1,164 @@
 ; main.s
-; Desenvolvido para a placa EK-TM4C1294XL
-; Prof. Guilherme Peron
-; Rev1: 10/03/2018
-; Rev2: 10/04/2019
-; Este programa espera o usuário apertar a chave USR_SW1 e/ou a chave USR_SW2.
-; Caso o usuário pressione a chave USR_SW1, acenderá o LED3 (PF4). Caso o usuário pressione 
-; a chave USR_SW2, acenderá o LED4 (PF0). Caso as duas chaves sejam pressionadas, os dois 
-; LEDs acendem.
+; Controle simples de nivel de tanque com displays, LEDs e interrupcao
+
+        THUMB
+
+TEMPO_500MS    EQU     83
 
 ; -------------------------------------------------------------------------------
-        THUMB                        ; Instruções do tipo Thumb-2
-; -------------------------------------------------------------------------------
-; Declarações EQU - Defines
-;<NOME>         EQU <VALOR>
-; ========================
+; Area de Dados - Declaracoes de variaveis
+        AREA    MAIN_DATA, DATA, READWRITE, ALIGN=2
 
-
-; -------------------------------------------------------------------------------
-; Área de Dados - Declarações de variáveis
-		AREA  DATA, ALIGN=2
-		; Se alguma variável for chamada em outro arquivo
-		;EXPORT  <var> [DATA,SIZE=<tam>]   ; Permite chamar a variável <var> a 
-		                                   ; partir de outro arquivo
-;<var>	SPACE <tam>                        ; Declara uma variável de nome <var>
-                                           ; de <tam> bytes a partir da primeira 
-                                           ; posição da RAM		
+NivelAtual      SPACE   1
+        EXPORT  Setpoint [DATA,SIZE=1]
+Setpoint        SPACE   1
+ContadorTempo   SPACE   1
 
 ; -------------------------------------------------------------------------------
-; Área de Código - Tudo abaixo da diretiva a seguir será armazenado na memória de 
-;                  código
+; Area de Codigo
         AREA    |.text|, CODE, READONLY, ALIGN=2
 
-		; Se alguma função do arquivo for chamada em outro arquivo	
-        EXPORT Start                ; Permite chamar a função Start a partir de 
-			                        ; outro arquivo. No caso startup.s
-									
-		; Se chamar alguma função externa	
-        ;IMPORT <func>              ; Permite chamar dentro deste arquivo uma 
-									; função <func>
-		IMPORT  GPIO_Init
-        IMPORT  PortF_Output
-        IMPORT  PortJ_Input
+        EXPORT  Start
 
-; -------------------------------------------------------------------------------
-; Função main()
-Start  			
-	BL GPIO_Init                 ;Chama a subrotina que inicializa os GPIO
+        IMPORT  GPIO_Init
+        IMPORT  Display_Init
+        IMPORT  Display_SetDigit
+        IMPORT  Display_SetLeds
+        IMPORT  Display_Refresh
+        IMPORT  PortN_Output
+
+Start
+        BL      GPIO_Init
+        BL      Display_Init
+
+        ; Inicializa as variaveis do sistema
+        LDR     R0, =NivelAtual
+        MOV     R1, #10
+        STRB    R1, [R0]
+
+        LDR     R0, =Setpoint
+        MOV     R1, #50
+        STRB    R1, [R0]
+
+        LDR     R0, =ContadorTempo
+        MOV     R1, #TEMPO_500MS
+        STRB    R1, [R0]
 
 MainLoop
-	BL PortJ_Input				 ;Chama a subrotina que lê o estado das chaves e coloca o resultado em R0
-Verifica_Nenhuma
-	CMP	R0, #2_00000011			 ;Verifica se nenhuma chave está pressionada
-	BNE Verifica_SW1			 ;Se o teste viu que tem pelo menos alguma chave pressionada pula
-	MOV R0, #0                   ;Não acender nenhum LED
-	BL PortF_Output			 	 ;Chamar a função para não acender nenhum LED
-	B MainLoop					 ;Se o teste viu que nenhuma chave está pressionada, volta para o laço principal
-Verifica_SW1	
-	CMP R0, #2_00000010			 ;Verifica se somente a chave SW1 está pressionada
-	BNE Verifica_SW2             ;Se o teste falhou, pula
-	MOV R0, #2_00010000			 ;Setar o parâmetro de entrada da função como o BIT4
-	BL PortF_Output				 ;Chamar a função para setar o LED3
-	B MainLoop                   ;Volta para o laço principal
-Verifica_SW2	
-	CMP R0, #2_00000001			 ;Verifica se somente a chave SW2 está pressionada
-	BNE Verifica_Ambas           ;Se o teste falhou, pula
-	MOV R0, #2_00000001			 ;Setar o parâmetro de entrada da função como o BIT0
-	BL PortF_Output				 ;Chamar a função para setar o LED4
-	B MainLoop                   ;Volta para o laço principal	
-Verifica_Ambas
-	CMP R0, #2_00000000			 ;Verifica se ambas as chaves estão pressionadas
-	BNE MainLoop          		 ;Se o teste falhou, pula
-	MOV R0, #2_00010001			 ;Setar o parâmetro de entrada da função como o BIT0
-                                 ;e o BIT4
-	BL PortF_Output		  	 	 ;Chamar a função para acender os dois LEDs
-	B MainLoop                   ;Volta para o laço principal	
+        BL      AtualizaDisplayNivel
+        BL      AtualizaDisplaySetpoint
+        BL      AtualizaLedEK
+        BL      Display_Refresh
 
+        ; Usa o refresh como base para aproximar 0,5 segundo
+        LDR     R0, =ContadorTempo
+        LDRB    R1, [R0]
+        SUBS    R1, R1, #1
+        BNE     SalvaContador
 
-    ALIGN                        ;Garante que o fim da seção está alinhada 
-    END                          ;Fim do arquivo
+        MOV     R1, #TEMPO_500MS
+        STRB    R1, [R0]
+        BL      AjustaNivelAtual
+        B       MainLoop
+
+SalvaContador
+        STRB    R1, [R0]
+        B       MainLoop
+
+; -------------------------------------------------------------------------------
+; Rotina AtualizaDisplayNivel
+; Converte o nivel atual em dezena e unidade e grava nos displays
+AtualizaDisplayNivel
+        PUSH    {R4-R7, LR}
+
+        LDR     R4, =NivelAtual
+        LDRB    R5, [R4]
+        MOV     R6, #10
+        UDIV    R7, R5, R6                  ; R7 = dezena
+        MLS     R6, R7, R6, R5              ; R6 = unidade
+
+        MOV     R0, #2                      ; Slot 2 = DS1 = dezena
+        MOV     R1, R7
+        BL      Display_SetDigit
+
+        MOV     R0, #1                      ; Slot 1 = DS2 = unidade
+        MOV     R1, R6
+        BL      Display_SetDigit
+
+        POP     {R4-R7, LR}
+        BX      LR
+
+; -------------------------------------------------------------------------------
+; Rotina AtualizaDisplaySetpoint
+; Envia o setpoint em binario para os LEDs da PAT
+AtualizaDisplaySetpoint
+        PUSH    {LR}
+
+        LDR     R1, =Setpoint
+        LDRB    R0, [R1]
+        BL      Display_SetLeds
+
+        POP     {LR}
+        BX      LR
+
+; -------------------------------------------------------------------------------
+; Rotina AtualizaLedEK
+; Atualiza PN1 e PN0 de acordo com o estado do sistema
+AtualizaLedEK
+        PUSH    {R4-R5, LR}
+
+        LDR     R4, =NivelAtual
+        LDRB    R4, [R4]
+        LDR     R5, =Setpoint
+        LDRB    R5, [R5]
+
+        CMP     R4, R5
+        BEQ     EstadoEstavel
+        BLO     EstadoEnchendo
+
+EstadoEsvaziando
+        MOV     R0, #2_00000010             ; PN1
+        BL      PortN_Output
+        POP     {R4-R5, LR}
+        BX      LR
+
+EstadoEnchendo
+        MOV     R0, #2_00000001             ; PN0
+        BL      PortN_Output
+        POP     {R4-R5, LR}
+        BX      LR
+
+EstadoEstavel
+        MOV     R0, #2_00000011             ; PN1 e PN0
+        BL      PortN_Output
+        POP     {R4-R5, LR}
+        BX      LR
+
+; -------------------------------------------------------------------------------
+; Rotina AjustaNivelAtual
+; Move o nivel atual em 1 unidade na direcao do setpoint
+AjustaNivelAtual
+        PUSH    {R4-R5, LR}
+
+        LDR     R4, =NivelAtual
+        LDRB    R0, [R4]
+        LDR     R5, =Setpoint
+        LDRB    R1, [R5]
+
+        CMP     R0, R1
+        BEQ     AjustaNivelFim
+        BLO     IncrementaNivel
+
+        SUBS    R0, R0, #1
+        STRB    R0, [R4]
+        B       AjustaNivelFim
+
+IncrementaNivel
+        ADDS    R0, R0, #1
+        STRB    R0, [R4]
+
+AjustaNivelFim
+        POP     {R4-R5, LR}
+        BX      LR
+
+        END
